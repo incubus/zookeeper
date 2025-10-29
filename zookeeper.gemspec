@@ -37,6 +37,7 @@ This library uses version #{Zookeeper::DRIVER_VERSION} of zookeeper bindings.
     s.add_runtime_dependency('slyphon-zookeeper_jar', '= 3.3.5')
     s.require_paths += %w[java]
   else
+    s.add_runtime_dependency('benchmark', '~> 0.5.0')
     s.require_paths += %w[ext]
     s.extensions = 'ext/extconf.rb'
   end
