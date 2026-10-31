@@ -154,12 +154,11 @@ class ZookeeperBase
     nil
   end
 
-  # the C lib doesn't strip the chroot path off of returned path values, which
-  # is pretty damn annoying. this is used to clean things up.
+  # the C lib (3.5+) strips the chroot path off of returned path values itself;
+  # the root of the chroot comes back as "/"
   def create(*args)
     # since we don't care about the inputs, just glob args
-    rc, new_path = czk.create(*args)
-    [rc, @req_registry.strip_chroot_from(new_path)]
+    czk.create(*args)
   end
 
   def set_debug_level(int)

@@ -220,8 +220,13 @@ static int destroy_zkrb_instance(zkrb_instance_data_t* zk) {
       zkrb_debug("FORK DETECTED! orig_pid: %d, current pid: %d, "
           "using socket-closing hack before zookeeper_close", zk->orig_pid, getpid());
 
-      int fd = ((int *)zk->zh)[0];  // nasty, brutish, and wonderfully effective hack (see above)
-      close(fd);
+      // nasty, brutish, and wonderfully effective hack (see above): the
+      // handle's first member is its socket (zk_adaptor.h, 3.5+)
+      zsock_t *sock = ((zsock_t **)zk->zh)[0];
+      if (sock && sock->sock >= 0) {
+        close(sock->sock);
+        sock->sock = -1;
+      }
 
     }
 

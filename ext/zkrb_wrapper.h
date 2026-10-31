@@ -15,6 +15,18 @@
 
 typedef struct {
   zhandle_t *zh;
+  const char *hosts;
+  int rc;
+} zkrb_zoo_set_servers_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  int delay_ms;
+  int rc;
+} zkrb_zoo_set_servers_resolution_delay_args_t;
+
+typedef struct {
+  zhandle_t *zh;
   int rc;
 } zkrb_zoo_recv_timeout_args_t;
 
@@ -29,11 +41,49 @@ typedef struct {
   const char *value;
   int valuelen;
   const struct ACL_vector *acl;
-  int flags;
+  int mode;
   string_completion_t completion;
   const void *data;
   int rc;
 } zkrb_zoo_acreate_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  const char *value;
+  int valuelen;
+  const struct ACL_vector *acl;
+  int mode;
+  int64_t ttl;
+  string_completion_t completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_acreate_ttl_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  const char *value;
+  int valuelen;
+  const struct ACL_vector *acl;
+  int mode;
+  string_stat_completion_t completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_acreate2_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  const char *value;
+  int valuelen;
+  const struct ACL_vector *acl;
+  int mode;
+  int64_t ttl;
+  string_stat_completion_t completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_acreate2_ttl_args_t;
 
 typedef struct {
   zhandle_t *zh;
@@ -81,6 +131,34 @@ typedef struct {
   const void *data;
   int rc;
 } zkrb_zoo_awget_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  int watch;
+  data_completion_t completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_agetconfig_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  watcher_fn watcher;
+  void* watcherCtx;
+  data_completion_t completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_awgetconfig_args_t;
+
+typedef struct {
+  zhandle_t *zh;
+  const char *joining;
+  const char *leaving;
+  const char *members;
+  int64_t version;
+  data_completion_t dc;
+  const void *data;
+  int rc;
+} zkrb_zoo_areconfig_args_t;
 
 typedef struct {
   zhandle_t *zh;
@@ -180,22 +258,105 @@ typedef struct {
 typedef struct {
   zhandle_t *zh;
   const char *path;
+  ZooWatcherType wtype;
+  watcher_fn watcher;
+  void *watcherCtx;
+  int local;
+  void_completion_t *completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_aremove_watches_args_t;
+
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  ZooWatcherType wtype;
+  int local;
+  int rc;
+} zkrb_zoo_remove_all_watches_args_t;
+#endif
+
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  ZooWatcherType wtype;
+  int local;
+  void_completion_t *completion;
+  const void *data;
+  int rc;
+} zkrb_zoo_aremove_all_watches_args_t;
+
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
   const char *value;
   int valuelen;
   const struct ACL_vector *acl;
-  int flags;
+  int mode;
   char *path_buffer;
   int path_buffer_len;
   int rc;
 } zkrb_zoo_create_args_t;
+#endif
 
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  const char *value;
+  int valuelen;
+  const struct ACL_vector *acl;
+  int mode;
+  int64_t ttl;
+  char *path_buffer;
+  int path_buffer_len;
+  int rc;
+} zkrb_zoo_create_ttl_args_t;
+#endif
+
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  const char *value;
+  int valuelen;
+  const struct ACL_vector *acl;
+  int mode;
+  char *path_buffer;
+  int path_buffer_len;
+  struct Stat *stat;
+  int rc;
+} zkrb_zoo_create2_args_t;
+#endif
+
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  const char *value;
+  int valuelen;
+  const struct ACL_vector *acl;
+  int mode;
+  int64_t ttl;
+  char *path_buffer;
+  int path_buffer_len;
+  struct Stat *stat;
+  int rc;
+} zkrb_zoo_create2_ttl_args_t;
+#endif
+
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
   int version;
   int rc;
 } zkrb_zoo_delete_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -203,7 +364,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_exists_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -212,7 +375,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_wexists_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -222,7 +387,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_get_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -233,7 +400,46 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_wget_args_t;
+#endif
 
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  int watch;
+  char *buffer;
+  int* buffer_len;
+  struct Stat *stat;
+  int rc;
+} zkrb_zoo_getconfig_args_t;
+#endif
+
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  watcher_fn watcher;
+  void* watcherCtx;
+  char *buffer;
+  int* buffer_len;
+  struct Stat *stat;
+  int rc;
+} zkrb_zoo_wgetconfig_args_t;
+#endif
+
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *joining;
+  const char *leaving;
+  const char *members;
+  int64_t version;
+  char *buffer;
+  int* buffer_len;
+  struct Stat *stat;
+  int rc;
+} zkrb_zoo_reconfig_args_t;
+#endif
+
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -242,7 +448,9 @@ typedef struct {
   int version;
   int rc;
 } zkrb_zoo_set_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -252,7 +460,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_set2_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -260,7 +470,9 @@ typedef struct {
   struct String_vector *strings;
   int rc;
 } zkrb_zoo_get_children_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -269,7 +481,9 @@ typedef struct {
   struct String_vector *strings;
   int rc;
 } zkrb_zoo_wget_children_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -278,7 +492,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_get_children2_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -288,7 +504,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_wget_children2_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -296,7 +514,9 @@ typedef struct {
   struct Stat *stat;
   int rc;
 } zkrb_zoo_get_acl_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   const char *path;
@@ -304,7 +524,9 @@ typedef struct {
   const struct ACL_vector *acl;
   int rc;
 } zkrb_zoo_set_acl_args_t;
+#endif
 
+#ifdef THREADED
 typedef struct {
   zhandle_t *zh;
   int count;
@@ -312,15 +534,36 @@ typedef struct {
   zoo_op_result_t *results;
   int rc;
 } zkrb_zoo_multi_args_t;
+#endif
 
+#ifdef THREADED
+typedef struct {
+  zhandle_t *zh;
+  const char *path;
+  ZooWatcherType wtype;
+  watcher_fn watcher;
+  void *watcherCtx;
+  int local;
+  int rc;
+} zkrb_zoo_remove_watches_args_t;
+#endif
+
+int zkrb_call_zoo_set_servers(zhandle_t *zh, const char *hosts);
+int zkrb_call_zoo_set_servers_resolution_delay(zhandle_t *zh, int delay_ms);
 int zkrb_call_zoo_recv_timeout(zhandle_t *zh);
 int zkrb_call_zoo_state(zhandle_t *zh);
-int zkrb_call_zoo_acreate(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int flags, string_completion_t completion, const void *data);
+int zkrb_call_zoo_acreate(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, string_completion_t completion, const void *data);
+int zkrb_call_zoo_acreate_ttl(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, int64_t ttl, string_completion_t completion, const void *data);
+int zkrb_call_zoo_acreate2(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, string_stat_completion_t completion, const void *data);
+int zkrb_call_zoo_acreate2_ttl(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, int64_t ttl, string_stat_completion_t completion, const void *data);
 int zkrb_call_zoo_adelete(zhandle_t *zh, const char *path, int version, void_completion_t completion, const void *data);
 int zkrb_call_zoo_aexists(zhandle_t *zh, const char *path, int watch, stat_completion_t completion, const void *data);
 int zkrb_call_zoo_awexists(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, stat_completion_t completion, const void *data);
 int zkrb_call_zoo_aget(zhandle_t *zh, const char *path, int watch, data_completion_t completion, const void *data);
 int zkrb_call_zoo_awget(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, data_completion_t completion, const void *data);
+int zkrb_call_zoo_agetconfig(zhandle_t *zh, int watch, data_completion_t completion, const void *data);
+int zkrb_call_zoo_awgetconfig(zhandle_t *zh, watcher_fn watcher, void* watcherCtx, data_completion_t completion, const void *data);
+int zkrb_call_zoo_areconfig(zhandle_t *zh, const char *joining, const char *leaving, const char *members, int64_t version, data_completion_t dc, const void *data);
 int zkrb_call_zoo_aset(zhandle_t *zh, const char *path, const char *buffer, int buflen, int version, stat_completion_t completion, const void *data);
 int zkrb_call_zoo_aget_children(zhandle_t *zh, const char *path, int watch, strings_completion_t completion, const void *data);
 int zkrb_call_zoo_awget_children(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, strings_completion_t completion, const void *data);
@@ -331,20 +574,76 @@ int zkrb_call_zoo_aget_acl(zhandle_t *zh, const char *path, acl_completion_t com
 int zkrb_call_zoo_aset_acl(zhandle_t *zh, const char *path, int version, struct ACL_vector *acl, void_completion_t completion, const void *data);
 int zkrb_call_zoo_amulti(zhandle_t *zh, int count, const zoo_op_t *ops, zoo_op_result_t *results, void_completion_t completion, const void *data);
 int zkrb_call_zoo_add_auth(zhandle_t *zh, const char* scheme, const char* cert, int certLen, void_completion_t completion, const void *data);
-int zkrb_call_zoo_create(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int flags, char *path_buffer, int path_buffer_len);
+int zkrb_call_zoo_aremove_watches(zhandle_t *zh, const char *path, ZooWatcherType wtype, watcher_fn watcher, void *watcherCtx, int local, void_completion_t *completion, const void *data);
+#ifdef THREADED
+int zkrb_call_zoo_remove_all_watches(zhandle_t *zh, const char *path, ZooWatcherType wtype, int local);
+#endif
+int zkrb_call_zoo_aremove_all_watches(zhandle_t *zh, const char *path, ZooWatcherType wtype, int local, void_completion_t *completion, const void *data);
+#ifdef THREADED
+int zkrb_call_zoo_create(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, char *path_buffer, int path_buffer_len);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_create_ttl(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, int64_t ttl, char *path_buffer, int path_buffer_len);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_create2(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, char *path_buffer, int path_buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_create2_ttl(zhandle_t *zh, const char *path, const char *value, int valuelen, const struct ACL_vector *acl, int mode, int64_t ttl, char *path_buffer, int path_buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_delete(zhandle_t *zh, const char *path, int version);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_exists(zhandle_t *zh, const char *path, int watch, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_wexists(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_get(zhandle_t *zh, const char *path, int watch, char *buffer, int* buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_wget(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, char *buffer, int* buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_getconfig(zhandle_t *zh, int watch, char *buffer, int* buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_wgetconfig(zhandle_t *zh, watcher_fn watcher, void* watcherCtx, char *buffer, int* buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_reconfig(zhandle_t *zh, const char *joining, const char *leaving, const char *members, int64_t version, char *buffer, int* buffer_len, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_set(zhandle_t *zh, const char *path, const char *buffer, int buflen, int version);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_set2(zhandle_t *zh, const char *path, const char *buffer, int buflen, int version, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_get_children(zhandle_t *zh, const char *path, int watch, struct String_vector *strings);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_wget_children(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, struct String_vector *strings);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_get_children2(zhandle_t *zh, const char *path, int watch, struct String_vector *strings, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_wget_children2(zhandle_t *zh, const char *path, watcher_fn watcher, void* watcherCtx, struct String_vector *strings, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_get_acl(zhandle_t *zh, const char *path, struct ACL_vector *acl, struct Stat *stat);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_set_acl(zhandle_t *zh, const char *path, int version, const struct ACL_vector *acl);
+#endif
+#ifdef THREADED
 int zkrb_call_zoo_multi(zhandle_t *zh, int count, const zoo_op_t *ops, zoo_op_result_t *results);
+#endif
+#ifdef THREADED
+int zkrb_call_zoo_remove_watches(zhandle_t *zh, const char *path, ZooWatcherType wtype, watcher_fn watcher, void *watcherCtx, int local);
+#endif
 
 #endif /* ZKRB_WRAPPER_H */

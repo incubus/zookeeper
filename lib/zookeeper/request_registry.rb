@@ -101,40 +101,15 @@ module Zookeeper
         end
       end
 
-      # as a hack, to provide consistency between the java implementation and the C
-      # implementation when dealing w/ chrooted connections, we override this in
-      # ext/zookeeper_base.rb to wrap the callback in a chroot-path-stripping block.
-      #
-      # we don't use meth_name here, but we need it in the C implementation
-      #
       def setup_completion(req_id, meth_name, call_opts)
         @mutex.synchronize do
           @completion_reqs[req_id] = { 
-            :callback => maybe_wrap_callback(meth_name, call_opts[:callback]),
+            # the C client (3.5+) strips the chroot from created paths itself,
+            # like the Java one: stripping it again here would cut a path that
+            # starts with the chroot's own name
+            :callback => call_opts[:callback],
             :context  => call_opts[:callback_context]
           }
-        end
-      end
-
-      # this is a hack: to provide consistency between the C and Java drivers when
-      # using a chrooted connection, we wrap the callback in a block that will
-      # strip the chroot path from the returned path (important in an async create
-      # sequential call). This is the only place where we can hook *just* the C
-      # version. The non-async manipulation is handled in ZookeeperBase#create.
-      # 
-      # TODO: need to move the continuation setup into here, so that it can get 
-      #       added to the callback hash
-      #
-      def maybe_wrap_callback(meth_name, cb)
-        return cb unless cb and chrooted? and (meth_name == :create)
-
-        lambda do |hash|
-          # in this case the string will be the absolute zookeeper path (i.e.
-          # with the chroot still prepended to the path). Here's where we strip it off
-          hash[:string] = strip_chroot_from(hash[:string])
-
-          # call the original callback
-          cb.call(hash)
         end
       end
       

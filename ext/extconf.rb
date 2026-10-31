@@ -69,11 +69,14 @@ Dir.chdir(HERE) do
     FileUtils.rm_f(Dir['**/._*'].select{|p| test(?f, p)})
 
     Dir.chdir(BUNDLE_PATH) do
-      configure = "./configure --prefix=#{HERE} --with-pic --without-cppunit --disable-dependency-tracking #{$EXTRA_CONF} 2>&1"
+      # the bundle ships configure and the jute sources pre-generated, so no
+      # autotools or java are needed here; TLS and SASL are not used
+      configure = "./configure --prefix=#{HERE} --with-pic --without-cppunit --without-openssl --without-sasl --disable-dependency-tracking #{$EXTRA_CONF} 2>&1"
       configure = "env CFLAGS='#{DEBUG_CFLAGS}' #{configure}" if ZK_DEBUG
 
       safe_sh(configure)
-      safe_sh("make  2>&1")
+      # upstream builds with -Werror; a newer compiler's new warning must not fail the install
+      safe_sh("make AM_CFLAGS='-Wall -Wdeclaration-after-statement' 2>&1")
       safe_sh("make install 2>&1")
     end
 

@@ -36,7 +36,14 @@ describe 'Zookeeper chrooted' do
         it %[should successfully create the path] do
           rv = zk.create(:path => '/', :data => '')
           expect(rv[:rc]).to be_zero
-          expect(rv[:path]).to eq('')
+          expect(rv[:path]).to eq('/') # the root of the chroot, as the Java client reports it
+        end
+
+        it %[should strip the chroot only once] do
+          zk.create(:path => '/', :data => '')
+          rv = zk.create(:path => chroot_path, :data => '') # /one-level/one-level on the server
+          expect(rv[:rc]).to be_zero
+          expect(rv[:path]).to eq(chroot_path)
         end
       end
     end
