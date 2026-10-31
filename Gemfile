@@ -6,7 +6,7 @@ gem 'rake', '>= 13.0'
 
 group :test do
   gem "rspec" , "~> 3.0"
-  gem 'eventmachine', '1.0.4'
+  gem 'eventmachine', '~> 1.2'
   gem 'evented-spec', '~> 0.9.0'
   gem 'zk-server', '~> 1.0', :git => 'https://github.com/zk-ruby/zk-server.git'
 end
@@ -16,7 +16,7 @@ end
 
 if RUBY_VERSION != '1.8.7' && !defined?(JRUBY_VERSION)
   gem 'simplecov', :group => :coverage, :require => false
-  gem 'yard', '~> 0.8.0', :group => :docs
+  gem 'yard', '~> 0.9', :group => :docs
   gem 'redcarpet',        :group => :docs
 
   group :development do
