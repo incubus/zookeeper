@@ -2,6 +2,7 @@
 
 unless defined?(::JRUBY_VERSION)
   require 'spec_helper'
+  require 'timeout'
 
   describe Zookeeper::CZookeeper do
     def pop_all_events
@@ -44,6 +45,46 @@ unless defined?(::JRUBY_VERSION)
           expect(event[:type]).to   eq(Zookeeper::Constants::ZOO_SESSION_EVENT)
           expect(event[:state]).to  eq(Zookeeper::Constants::ZOO_CONNECTED_STATE)
         end
+      end
+    end
+
+    it %[should raise ConnectionFailed when a host of the connect string does not resolve] do
+      expect {
+        Zookeeper::CZookeeper.new('zkrb-no-such-host.invalid:2181', Zookeeper::Common::QueueWithPipe.new)
+      }.to raise_error(Zookeeper::Exceptions::ConnectionFailed, /error connecting to zookeeper/)
+    end
+
+    describe 'the session timeout' do
+      after do
+        @zk.close rescue Exception
+      end
+
+      it %[should be the default, not the raw ruby value] do
+        @zk = Zookeeper.new(Zookeeper.default_cnx_str)
+        expect(@zk.recv_timeout).to eq(Zookeeper::CZookeeper::DEFAULT_RECEIVE_TIMEOUT_MSEC)
+      end
+
+      it %[should keep the one asked for across a reopen] do
+        @zk = Zookeeper.new(Zookeeper.default_cnx_str, 10, nil, :receive_timeout_msec => 15_000)
+        expect(@zk.recv_timeout).to eq(15_000)
+        @zk.reopen
+        expect(@zk.recv_timeout).to eq(15_000)
+      end
+    end
+
+    describe 'with a request the C client refuses' do
+      before do
+        @zk = Zookeeper.new(Zookeeper.default_cnx_str)
+      end
+
+      after do
+        @zk.close rescue Exception
+      end
+
+      it %[should answer it and still close promptly] do
+        # the C client rejects a control character in a path before sending anything
+        expect(@zk.create(:path => "/zkrb-refused-\u0001")[:rc]).to eq(Zookeeper::Constants::ZBADARGUMENTS)
+        expect { Timeout.timeout(10) { @zk.close } }.not_to raise_error
       end
     end
   end

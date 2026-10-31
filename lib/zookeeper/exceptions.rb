@@ -81,6 +81,10 @@ stacktrace:
   # zookeeper handle. (C version)
   class HandleClosedException < ZookeeperException; end
 
+  # raised when the C client cannot set up a handle, e.g. a host of the
+  # connect string does not resolve. (C version)
+  class ConnectionFailed < ZookeeperException; end
+
   # maybe use this for continuation
   class InterruptedException  < ZookeeperException ; end
 

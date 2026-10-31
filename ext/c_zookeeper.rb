@@ -19,7 +19,9 @@ class CZookeeper
   include Exceptions
   include Logger
 
-  DEFAULT_RECEIVE_TIMEOUT_MSEC = 10000
+  # the session timeout every client has actually run with: the C layer used to
+  # pass this ivar's raw VALUE, so the old 10000 went out as 20001
+  DEFAULT_RECEIVE_TIMEOUT_MSEC = 20000
 
   class GotNilEventException < StandardError; end
 
@@ -229,7 +231,8 @@ class CZookeeper
           r.pending << cnt
         end
       end
-      wake_event_loop!
+      # nothing would ever answer it: the event loop is gone with the pipe
+      raise Exceptions::NotConnected, "the connection is closed" unless wake_event_loop!
       cnt.value
     end
 
@@ -322,8 +325,11 @@ class CZookeeper
       return if calls.empty?
 
       while cntn = calls.shift
-        cntn.submit(self)                     # this delivers state check results (and does other stuff)
-        if req_id = cntn.req_id               # state checks will not have a req_id
+        submitted = cntn.submit(self)         # this delivers state check results (and does other stuff)
+
+        # a request the C client refused, or one made while not connected, gets
+        # no completion: registered, it would keep a closing loop waiting forever
+        if submitted and req_id = cntn.req_id # state checks will not have a req_id
           @reg.in_flight[req_id] = cntn       # in_flight is only ever touched by us
         end
       end
@@ -331,6 +337,8 @@ class CZookeeper
 
     def wake_event_loop!
       @pipe_write && !@pipe_write.closed? && @pipe_write.write('1')
+    rescue IOError # closed by #close between the check and the write
+      false
     end
 
     def iterate_event_delivery

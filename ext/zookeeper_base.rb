@@ -28,7 +28,7 @@ class ZookeeperBase
 
   def_delegators :czk, :get_children, :exists, :delete, :get, :set,
     :set_acl, :get_acl, :client_id, :sync, :add_auth, :wait_until_connected,
-    :connected_host
+    :connected_host, :recv_timeout
 
   def self.threadsafe_inquisitor(*syms)
     syms.each do |sym|
@@ -67,9 +67,13 @@ class ZookeeperBase
 
     reopen_after_fork! if forked?
 
+    # the options of the first open (the session timeout) hold for every reopen
+    # that passes none, like the one after a session expires
+    @czk_opts = opts unless opts.empty? and @czk_opts
+
     @mutex.synchronize do
       @czk.close if @czk
-      @czk = CZookeeper.new(@host, @event_queue, opts)
+      @czk = CZookeeper.new(@host, @event_queue, @czk_opts)
 
       # flushes all outstanding watcher reqs.
       @req_registry.clear_watchers!
@@ -196,8 +200,8 @@ class ZookeeperBase
     @mutex.synchronize do
       logger.debug { "ZookeeperBase#pause_before_fork_in_parent" }
 
-      # XXX: add anal-retentive state checking 
-      raise "EXPLODERATE! @czk was nil!" unless @czk
+      # XXX: add anal-retentive state checking
+      raise Exceptions::HandleClosedException, "EXPLODERATE! @czk was nil!" unless @czk
 
       @czk.pause_before_fork_in_parent
       stop_dispatch_thread!
@@ -208,7 +212,7 @@ class ZookeeperBase
     @mutex.synchronize do
       logger.debug { "ZookeeperBase#resume_after_fork_in_parent" }
 
-      raise "EXPLODERATE! @czk was nil!" unless @czk
+      raise Exceptions::HandleClosedException, "EXPLODERATE! @czk was nil!" unless @czk
 
       event_queue.open
       setup_dispatch_thread!

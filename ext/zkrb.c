@@ -71,6 +71,7 @@
 #include "rubyio.h"
 #else
 #include "ruby/io.h"
+#include "ruby/thread.h"
 #endif
 
 #ifndef HAVE_RB_THREAD_FD_SELECT
@@ -106,6 +107,8 @@ static VALUE CZookeeper = Qnil;         // the Zookeeper::CZookeeper class
 static VALUE ZookeeperClientId = Qnil;
 static VALUE mZookeeperExceptions = Qnil;    // the Zookeeper::Exceptions module
 static VALUE eHandleClosedException = Qnil;  // raised when we don't have a valid handle in FETCH_DATA_PTR
+static VALUE eConnectionFailed = Qnil;       // raised when zookeeper_init cannot set up a handle
+static VALUE eConnectionClosed = Qnil;       // raised when the self-pipe is gone under the event loop
 
 // slyphon: possibly add a lock to this for synchronizing during get_next_event
 
@@ -270,6 +273,35 @@ inline static void zkrb_debug_clientid_t(const clientid_t *cid) {
   zkrb_debug("myid, client_id: %"PRId64", passwd: %*s", cid->client_id, hex_len, buf);
 }
 
+struct zkrb_init_args {
+  const char           *host;
+  int                   recv_timeout;
+  clientid_t           *clientid;
+  zkrb_calling_context *ctx;
+  zhandle_t           **zh;
+  int                   err;
+};
+
+// zookeeper_init resolves every host of the connect string with getaddrinfo,
+// which can block for the resolver's timeout, so it runs without the GVL. It
+// touches no ruby objects: the host string is a private copy. The handle goes
+// straight into the instance data, so an interrupt delivered after the call
+// cannot orphan it: collecting the data closes it.
+static void *zkrb_init_without_gvl(void *data) {
+  struct zkrb_init_args *args = data;
+
+  *args->zh = zookeeper_init(
+      args->host,                   // const char *host
+      zkrb_state_callback,          // watcher_fn
+      args->recv_timeout,           // recv_timeout
+      args->clientid,               // cilentid_t
+      args->ctx,                    // void *context
+      0);                           // flags
+  args->err = errno;
+
+  return NULL;
+}
+
 static VALUE method_zkrb_init(int argc, VALUE* argv, VALUE self) {
   VALUE hostPort=Qnil;
   VALUE options=Qnil;
@@ -310,7 +342,7 @@ static VALUE method_zkrb_init(int argc, VALUE* argv, VALUE self) {
   zk_local_ctx->queue = zkrb_queue_alloc();
 
   if (zk_local_ctx->queue == NULL)
-    rb_raise(rb_eRuntimeError, "could not allocate zkrb queue!");
+    rb_raise(eConnectionFailed, "could not allocate zkrb queue!");
 
   zoo_deterministic_conn_order(0);
 
@@ -319,23 +351,34 @@ static VALUE method_zkrb_init(int argc, VALUE* argv, VALUE self) {
 
   zk_local_ctx->object_id = FIX2LONG(rb_obj_id(self));
 
-  zk_local_ctx->zh =
-      zookeeper_init(
-          RSTRING_PTR(hostPort),        // const char *host
-          zkrb_state_callback,          // watcher_fn
-          receive_timeout_msec(self),   // recv_timeout
-          &zk_local_ctx->myid,          // cilentid_t
-          ctx,                          // void *context
-          0);                           // flags
+  // the ivar holds a ruby Integer; passed raw, its tagged VALUE (2n+1) went out as the session timeout
+  int recv_timeout = NUM2INT(receive_timeout_msec(self));
+
+  // on the stack, so a raise on either side of the call cannot leak it
+  long host_len = RSTRING_LEN(hostPort);
+  char host[host_len + 1];
+  memcpy(host, RSTRING_PTR(hostPort), host_len);
+  host[host_len] = '\0';
+
+  struct zkrb_init_args init_args = {
+    .host         = host,
+    .recv_timeout = recv_timeout,
+    .clientid     = &zk_local_ctx->myid,
+    .ctx          = ctx,
+    .zh           = &zk_local_ctx->zh,
+  };
+
+  // set first: collecting the data before it is set would take this for a fork
+  zk_local_ctx->orig_pid = getpid();
+
+  rb_thread_call_without_gvl(zkrb_init_without_gvl, &init_args, NULL, NULL);
 
   zkrb_debug("method_zkrb_init, zk_local_ctx: %p, zh: %p, queue: %p, calling_ctx: %p",
       zk_local_ctx, zk_local_ctx->zh, zk_local_ctx->queue, ctx);
 
   if (!zk_local_ctx->zh) {
-    rb_raise(rb_eRuntimeError, "error connecting to zookeeper: %d", errno);
+    rb_raise(eConnectionFailed, "error connecting to zookeeper: %d", init_args.err);
   }
-
-  zk_local_ctx->orig_pid = getpid();
 
   rb_iv_set(self, "@_data", data);
   rb_funcall(self, rb_intern("zkc_set_running_and_notify!"), 0);
@@ -732,7 +775,7 @@ static VALUE method_zkrb_get_next_event(VALUE self, VALUE blocking) {
         bytes_read = read(fd, buf, sizeof(buf));
 
         if (bytes_read == -1) {
-          rb_raise(rb_eRuntimeError, "read failed: %d", errno);
+          rb_raise(eConnectionClosed, "read failed: %d", errno);
         }
 
         zkrb_debug_inst(self, "read %zd bytes from the queue (%p)'s pipe", bytes_read, zk->queue);
@@ -786,7 +829,7 @@ inline static int get_self_pipe_read_fd(VALUE self) {
   VALUE pipe_read = rb_iv_get(self, "@pipe_read");
 
   if (NIL_P(pipe_read))
-      rb_raise(rb_eRuntimeError, "@pipe_read was nil!");
+      rb_raise(eConnectionClosed, "@pipe_read was nil!");
 
   GetOpenFile(pipe_read, fptr);
 
@@ -848,7 +891,7 @@ static VALUE method_zkrb_iterate_event_loop(VALUE self) {
       char b[1];
 
       if (read(pipe_r_fd, b, 1) < 0) {
-        rb_raise(rb_eRuntimeError, "read from pipe failed: %s", clean_errno());
+        rb_raise(eConnectionClosed, "read from pipe failed: %s", clean_errno());
       }
     }
   }
@@ -1064,6 +1107,8 @@ void Init_zookeeper_c() {
 
   // this will likely fail if the load order is screwed up
   eHandleClosedException = rb_const_get(mZookeeperExceptions, rb_intern("HandleClosedException"));
+  eConnectionFailed = rb_const_get(mZookeeperExceptions, rb_intern("ConnectionFailed"));
+  eConnectionClosed = rb_const_get(mZookeeperExceptions, rb_intern("ConnectionClosed"));
 
   /* initialize CZookeeper class */
   CZookeeper = rb_define_class_under(mZookeeper, "CZookeeper", rb_cObject);

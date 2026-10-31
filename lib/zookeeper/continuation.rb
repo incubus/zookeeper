@@ -155,18 +155,22 @@ module Zookeeper
     # BTW: in case you were wondering this is a completely stupid
     # implementation, but it's more important to get *something* working and
     # passing specs, then refactor to make everything sane
-    # 
+    #
+    # @return [Boolean] true when the C client took the request, so a completion
+    #   for it will arrive; only such a request may wait in the in-flight registry
     #
     def submit(czk)
       state = czk.zkrb_state    # check the state of the connection
 
       if @meth == :state        # if the method is a state call
         @rval = [state]         # we're done, no error
-        return deliver!
+        deliver!
+        return false
 
       elsif state != ZOO_CONNECTED_STATE  # otherwise, we must be connected
         @error = state                    # so set the error
-        return deliver!                   # and we're out
+        deliver!                          # and we're out
+        return false
       end
 
       rc, *_ = czk.__send__(:"zkrb_#{@meth}", *async_args)
@@ -175,6 +179,8 @@ module Zookeeper
         @rval = [rc]                    # create the repsonse
         deliver!                        # wake the caller and we're out
       end
+
+      rc == ZOK
     end
 
     def req_id
