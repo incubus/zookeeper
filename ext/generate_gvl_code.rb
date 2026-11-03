@@ -191,7 +191,7 @@ class GeneratedCode < Struct.new(:structs, :wrapper_fns, :calling_fns)
     self.calling_fns ||= []
   end
 
-  # declared outside #ifdef THREADED in zookeeper.h (3.8.4), yet built only into
+  # declared outside #ifdef THREADED in zookeeper.h (3.8, 3.9), yet built only into
   # the mt library: a wrapper for it would leave the extension an undefined symbol
   MT_ONLY = %w[zoo_remove_all_watches].freeze
 
